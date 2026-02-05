@@ -6,3 +6,4 @@ librosa
 soundfile
 pydub
 python-multipart
+openai-whisper
