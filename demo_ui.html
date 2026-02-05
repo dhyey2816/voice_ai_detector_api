@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Voice Detector</title>
+</head>
+<body>
+  <h2>AI Voice Detection (Auto Language)</h2>
+
+  <input type="file" id="file" accept=".mp3"/>
+  <button onclick="send()">Detect</button>
+
+  <pre id="result"></pre>
+
+<script>
+async function send() {
+  const file = document.getElementById("file").files[0];
+  if (!file) {
+    alert("Please select an MP3 file");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(",")[1];
+
+    const body = {
+      audioFormat: "mp3",
+      audioBase64: base64
+    };
+
+    const res = await fetch("http://127.0.0.1:8000/api/voice-detection", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "sk_test_123456789"
+      },
+      body: JSON.stringify(body)
+    });
+
+    const json = await res.json();
+    document.getElementById("result").innerText = JSON.stringify(json, null, 2);
+  };
+
+  reader.readAsDataURL(file);
+}
+</script>
+</body>
+</html>
