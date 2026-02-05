@@ -5,3 +5,4 @@ transformers
 pydub
 numpy
 python-multipart
+librosa
