@@ -1,4 +1,6 @@
 import os
+import base64
+import tempfile
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -39,10 +41,21 @@ def detect_voice(
     if data.audioFormat.lower() != "mp3":
         raise HTTPException(status_code=400, detail="Only MP3 supported")
 
-    wav_io = base64_to_wav(data.audioBase64)
-    audio = load_audio(wav_io)
+    # Decode Base64 → MP3
+    try:
+        audio_bytes = base64.b64decode(data.audioBase64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid Base64 audio")
 
-    prob = predict_ai(audio)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    try:
+        audio, sr = load_audio(tmp_path)
+        prob = predict_ai(audio)
+    finally:
+        os.remove(tmp_path)
 
     return {
         "status": "success",
@@ -51,4 +64,3 @@ def detect_voice(
         "confidenceScore": round(prob, 2),
         "explanation": generate_explanation(prob)
     }
-
