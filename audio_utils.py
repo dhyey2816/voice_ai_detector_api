@@ -1,22 +1,50 @@
 import base64
-import io
-from pydub import AudioSegment
+import os
+import subprocess
+import tempfile
 import librosa
 import numpy as np
 
-def base64_to_wav(audio_base64: str):
-    audio_base64 = audio_base64.strip()
-    audio_base64 = audio_base64.replace("\n", "").replace(" ", "")
 
-    # Fix padding
-    missing_padding = len(audio_base64) % 4
-    if missing_padding:
-        audio_base64 += "=" * (4 - missing_padding)
+TARGET_SR = 16000
 
-    audio_bytes = base64.b64decode(audio_base64)
-    return io.BytesIO(audio_bytes)
 
-def load_audio(wav_io):
-    y, sr = librosa.load(wav_io, sr=16000)
-    return y
+class AudioError(Exception):
+    pass
 
+
+def load_audio(path, return_base64=False):
+    """
+    If return_base64=True  -> returns base64 MP3 (transport)
+    If return_base64=False -> returns (audio_array, sample_rate)
+    """
+
+    if not os.path.exists(path):
+        raise AudioError("File not found")
+
+    # ---- Base64 ONLY (no decoding) ----
+    if return_base64:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+
+    # ---- Inference path ----
+    tmp_wav = tempfile.NamedTemporaryFile(
+        suffix=".wav",
+        delete=False
+    ).name
+
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", path, "-ac", "1", "-ar", str(TARGET_SR), tmp_wav],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    audio, sr = librosa.load(tmp_wav, sr=TARGET_SR, mono=True)
+    os.remove(tmp_wav)
+
+    if audio is None or len(audio) == 0:
+        raise AudioError("Invalid audio")
+
+    audio = audio / (np.max(np.abs(audio)) + 1e-9)
+
+    return audio.astype(np.float32), sr
