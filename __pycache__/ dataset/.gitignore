@@ -1,0 +1,5 @@
+__pycache__/
+dataset/
+*.wav
+*.mp3
+.env
