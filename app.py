@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from audio_utils import base64_to_wav, load_audio
+from audio_utils import load_audio
 from model import predict_ai, generate_explanation, detect_language
 
 API_KEY = os.getenv("API_KEY")
@@ -51,3 +51,4 @@ def detect_voice(
         "confidenceScore": round(prob, 2),
         "explanation": generate_explanation(prob)
     }
+
