@@ -2,8 +2,6 @@ fastapi
 uvicorn
 torch
 transformers
-librosa
-soundfile
 pydub
+numpy
 python-multipart
-openai-whisper
