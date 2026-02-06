@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 
-DATA_DIR = "data"
+DATA_DIR = "dataset"
 SR = 16000
 
 
@@ -45,3 +45,4 @@ for epoch in range(30):
 
 torch.save(model, "classifier.pt")
 print("Saved classifier.pt")
+
