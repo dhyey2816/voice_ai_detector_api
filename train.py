@@ -1,45 +1,47 @@
 import os
-import torch
 import librosa
 import numpy as np
-from transformers import Wav2Vec2Processor, Wav2Vec2Model
+import torch
+from torch import nn
 
-processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
-model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
-model.eval()
+DATA_DIR = "data"
+SR = 16000
+
+
+def extract_features(path):
+    audio, _ = librosa.load(path, sr=SR)
+    mfcc = librosa.feature.mfcc(audio, sr=SR, n_mfcc=20)
+    feat = np.concatenate([mfcc.mean(axis=1), mfcc.var(axis=1)])
+    return feat
+
 
 X, y = [], []
 
-def load_folder(folder, label):
-    for f in os.listdir(folder):
-        path = os.path.join(folder, f)
-        audio, sr = librosa.load(path, sr=16000)
-
-        inputs = processor(audio, sampling_rate=16000, return_tensors="pt", padding=True)
-        with torch.no_grad():
-            out = model(**inputs)
-            emb = out.last_hidden_state.mean(dim=1).squeeze()
-
-        X.append(emb)
+for label, cls in enumerate(["human", "ai"]):
+    folder = os.path.join(DATA_DIR, cls)
+    for file in os.listdir(folder):
+        feat = extract_features(os.path.join(folder, file))
+        X.append(feat)
         y.append(label)
 
-load_folder("dataset/human", 0)
-load_folder("dataset/ai", 1)
+X = torch.tensor(X, dtype=torch.float32)
+y = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
 
-X = torch.stack(X)
-y = torch.tensor(y).float().unsqueeze(1)
+model = nn.Sequential(
+    nn.Linear(40, 16),
+    nn.ReLU(),
+    nn.Linear(16, 1)
+)
 
-clf = torch.nn.Linear(768, 1)
-optimizer = torch.optim.Adam(clf.parameters(), lr=0.001)
-loss_fn = torch.nn.BCEWithLogitsLoss()
+criterion = nn.BCEWithLogitsLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 for epoch in range(30):
     optimizer.zero_grad()
-    logits = clf(X)
-    loss = loss_fn(logits, y)
+    loss = criterion(model(X), y)
     loss.backward()
     optimizer.step()
-    print(f"Epoch {epoch}, Loss: {loss.item():.4f}")
+    print(f"Epoch {epoch+1} | Loss: {loss.item():.4f}")
 
-torch.save(clf.state_dict(), "classifier.pt")
+torch.save(model, "classifier.pt")
 print("Saved classifier.pt")
