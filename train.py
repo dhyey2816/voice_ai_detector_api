@@ -10,7 +10,7 @@ SR = 16000
 
 def extract_features(path):
     audio, _ = librosa.load(path, sr=SR)
-    mfcc = librosa.feature.mfcc(audio, sr=SR, n_mfcc=20)
+    mfcc = librosa.feature.mfcc(y=audio, sr=SR, n_mfcc=20)
     feat = np.concatenate([mfcc.mean(axis=1), mfcc.var(axis=1)])
     return feat
 
@@ -20,9 +20,13 @@ X, y = [], []
 for label, cls in enumerate(["human", "ai"]):
     folder = os.path.join(DATA_DIR, cls)
     for file in os.listdir(folder):
+        if not file.lower().endswith(".wav"):
+            continue  # skip non-audio files
+
         feat = extract_features(os.path.join(folder, file))
         X.append(feat)
         y.append(label)
+
 
 X = torch.tensor(X, dtype=torch.float32)
 y = torch.tensor(y, dtype=torch.float32).unsqueeze(1)
