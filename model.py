@@ -1,50 +1,59 @@
-import numpy as np
 import torch
-import librosa
+import numpy as np
+from torch import nn
 
 device = "cpu"
-_model = None
 
+_model = None
 
 def load_models_once():
     global _model
-    if _model is None:
-        print("Loading lightweight classifier...")
-        _model = torch.load("classifier.pt", map_location=device)
-        _model.eval()
-        print("Lightweight classifier loaded")
 
+    if _model is not None:
+        return
 
-def extract_features(audio_np, sr=16000):
-    mfcc = librosa.feature.mfcc(
-        y=audio_np,
-        sr=sr,
-        n_mfcc=20
+    print("Loading lightweight classifier...")
+
+    _model = nn.Sequential(
+        nn.Linear(40, 16),
+        nn.ReLU(),
+        nn.Linear(16, 1)
     )
-    feat = np.concatenate([mfcc.mean(axis=1), mfcc.var(axis=1)])
-    return torch.tensor(feat, dtype=torch.float32).unsqueeze(0)
+
+    state_dict = torch.load(
+        "classifier.pt",
+        map_location=device
+    )
+
+    _model.load_state_dict(state_dict)
+    _model.eval()
+
+    print("Lightweight classifier loaded")
 
 
-def predict_ai(audio_np):
+def predict_ai(audio_np: np.ndarray) -> float:
     if _model is None:
-        raise RuntimeError("Model not loaded")
+        load_models_once()
 
-    features = extract_features(audio_np)
+    if audio_np.ndim == 1:
+        audio_np = np.expand_dims(audio_np, axis=0)
 
     with torch.no_grad():
-        prob = torch.sigmoid(_model(features)).item()
+        x = torch.tensor(audio_np, dtype=torch.float32)
+        logits = _model(x)
+        prob = torch.sigmoid(logits).item()
 
     return prob
 
 
 def generate_explanation(prob: float) -> str:
     if prob >= 0.7:
-        return "Strong synthetic speech artifacts detected"
+        return "Strong synthetic speech patterns detected"
     elif prob >= 0.5:
-        return "Some AI-generated speech patterns detected"
+        return "Some AI-generated speech artifacts detected"
     else:
         return "Natural human voice characteristics detected"
 
 
-def detect_language(_):
+def detect_language(_: np.ndarray) -> str:
     return "Auto-detected"
